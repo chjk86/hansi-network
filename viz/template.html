@@ -1,0 +1,702 @@
+<style>
+.viz-root {
+  --surface-1:      #fcfcfb;
+  --page:           #f9f9f7;
+  --text-primary:   #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted:     #898781;
+  --grid:           #e1e0d9;
+  --baseline:       #c3c2b7;
+  --border:         rgba(11,11,11,0.10);
+  --critical:       #d03b3b;
+  --good:           #0ca30c;
+
+  --cat-1: #2a78d6; /* 증정 */
+  --cat-2: #1baf7a; /* 기증 */
+  --cat-3: #eda100; /* 수답 */
+  --cat-4: #008300; /* 화답 */
+  --cat-5: #4a3aa7; /* 차운 */
+  --cat-6: #e34948; /* 송별 */
+  --cat-7: #e87ba4; /* 서간 */
+  --cat-8: #eb6834; /* 만사 */
+
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--text-primary);
+  background: var(--page);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  max-width: 1180px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) {
+  .viz-root {
+    --surface-1: #1a1a19; --page: #0d0d0d; --text-primary: #ffffff;
+    --text-secondary: #c3c2b7; --text-muted: #898781; --grid: #2c2c2a;
+    --baseline: #383835; --border: rgba(255,255,255,0.10);
+    --critical: #e66767; --good: #0ca30c;
+    --cat-1: #3987e5; --cat-2: #199e70; --cat-3: #c98500; --cat-4: #008300;
+    --cat-5: #9085e9; --cat-6: #e66767; --cat-7: #d55181; --cat-8: #d95926;
+  }
+}
+:root[data-theme="dark"] .viz-root {
+  --surface-1: #1a1a19; --page: #0d0d0d; --text-primary: #ffffff;
+  --text-secondary: #c3c2b7; --text-muted: #898781; --grid: #2c2c2a;
+  --baseline: #383835; --border: rgba(255,255,255,0.10);
+  --critical: #e66767; --good: #0ca30c;
+  --cat-1: #3987e5; --cat-2: #199e70; --cat-3: #c98500; --cat-4: #008300;
+  --cat-5: #9085e9; --cat-6: #e66767; --cat-7: #d55181; --cat-8: #d95926;
+}
+:root[data-theme="light"] .viz-root {
+  --surface-1: #fcfcfb; --page: #f9f9f7; --text-primary: #0b0b0b;
+  --text-secondary: #52514e; --text-muted: #898781; --grid: #e1e0d9;
+  --baseline: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --critical: #d03b3b; --good: #0ca30c;
+  --cat-1: #2a78d6; --cat-2: #1baf7a; --cat-3: #eda100; --cat-4: #008300;
+  --cat-5: #4a3aa7; --cat-6: #e34948; --cat-7: #e87ba4; --cat-8: #eb6834;
+}
+
+.viz-root * { box-sizing: border-box; }
+.viz-root h1 { font-size: 19px; font-weight: 700; margin: 0 0 4px; }
+.viz-root .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.viz-root .stats { display: flex; gap: 18px; margin-top: 8px; flex-wrap: wrap; }
+.viz-root .stat { font-size: 12px; color: var(--text-muted); }
+.viz-root .stat b { color: var(--text-primary); font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.viz-root .controls {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; font-size: 12.5px;
+}
+.viz-root .controls .group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.viz-root .controls label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-secondary); white-space: nowrap; }
+.viz-root .controls input[type="checkbox"] { accent-color: var(--cat-1); cursor: pointer; }
+.viz-root .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.viz-root .controls input[type="text"] {
+  background: var(--page); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 9px; font-size: 12.5px; color: var(--text-primary); width: 140px;
+}
+.viz-root .controls input[type="range"] { width: 90px; accent-color: var(--cat-1); }
+.viz-root .controls .sep { width: 1px; height: 20px; background: var(--border); }
+.viz-root .toggle-btn {
+  background: var(--page); border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 12px; font-size: 12.5px; color: var(--text-primary); cursor: pointer;
+}
+.viz-root .toggle-btn.active { background: var(--cat-1); color: #fff; border-color: var(--cat-1); }
+
+.viz-root .stage {
+  position: relative; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.viz-root svg#graph { width: 100%; height: 62vh; min-height: 460px; display: block; cursor: grab; }
+.viz-root svg#graph.panning { cursor: grabbing; }
+.viz-root .node circle { stroke: var(--surface-1); stroke-width: 1.5px; cursor: pointer; }
+.viz-root .node text {
+  font-size: 10.5px; fill: var(--text-primary); pointer-events: none;
+  paint-order: stroke; stroke: var(--surface-1); stroke-width: 3px;
+}
+.viz-root .node.dim circle { opacity: 0.15; }
+.viz-root .node.dim text { opacity: 0.12; }
+.viz-root .edge { fill: none; }
+.viz-root .edge.dim { opacity: 0.06; }
+.viz-root .edge.hi { opacity: 1 !important; stroke-width: var(--hi-width, 3px) !important; }
+
+.viz-root .tooltip {
+  position: absolute; pointer-events: none; background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  font-size: 12px; color: var(--text-primary); box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  max-width: 240px; z-index: 10; opacity: 0; transition: opacity 0.08s;
+}
+.viz-root .tooltip.show { opacity: 1; }
+.viz-root .tooltip .t-title { font-weight: 700; margin-bottom: 3px; }
+.viz-root .tooltip .t-row { color: var(--text-secondary); font-size: 11.5px; line-height: 1.5; }
+.viz-root .tooltip .t-row b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.viz-root .tooltip .t-warn { color: var(--critical); font-weight: 700; }
+
+.viz-root .legend {
+  display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+  font-size: 11.5px; color: var(--text-secondary); padding: 2px 2px;
+}
+.viz-root .legend .item { display: flex; align-items: center; gap: 5px; }
+.viz-root .legend .line { width: 18px; height: 0; border-top: 2.5px solid var(--text-muted); display: inline-block; }
+.viz-root .legend .line.dashed { border-top-style: dashed; }
+.viz-root .legend .line.dotted { border-top-style: dotted; border-top-width: 3px; }
+
+.viz-root table#dataTable { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.viz-root table#dataTable th, .viz-root table#dataTable td {
+  text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+.viz-root table#dataTable th {
+  color: var(--text-muted); font-weight: 600; cursor: pointer; position: sticky; top: 0;
+  background: var(--surface-1); user-select: none;
+}
+.viz-root table#dataTable th:hover { color: var(--text-primary); }
+.viz-root table#dataTable td.num { font-variant-numeric: tabular-nums; text-align: right; }
+.viz-root table#dataTable tbody tr:hover { background: var(--page); }
+.viz-root .table-wrap { max-height: 62vh; overflow: auto; }
+.viz-root .status-pill {
+  display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px;
+  border: 1px solid var(--border);
+}
+.viz-root .status-pill.impossible { color: var(--critical); border-color: var(--critical); }
+.viz-root .status-pill.non_contemporary { color: var(--text-muted); }
+.viz-root .status-pill.contemporary { color: var(--good); border-color: var(--good); }
+
+.viz-root footer { font-size: 11.5px; color: var(--text-muted); line-height: 1.6; padding: 4px 2px 0; }
+.viz-root footer b { color: var(--text-secondary); }
+</style>
+
+<div class="viz-root">
+  <div>
+    <h1>한시 증답(贈答) 네트워크 — 파일럿 99개 문집</h1>
+    <p class="subtitle">고운집~안분당시집(최치원~이희보) 99개 문집, 시 42,748수의 제목에서 증/기/수답/화답/차운/송별/서간/만사 표현을 규칙 기반으로 추출해 99명 저자 목록과 대조 매칭한 결과입니다. 정확한 개체명 인식이 아닌 1차 파일럿이라 노이즈가 섞여 있습니다.</p>
+    <div class="stats">
+      <div class="stat"><b id="statNodes">–</b> 인물(교류 있음)</div>
+      <div class="stat"><b id="statEdges">–</b> 저자→수신자 관계</div>
+      <div class="stat"><b id="statPoems">42,748</b> 시 전체</div>
+      <div class="stat"><b id="statMatchRate">7.8%</b> 수신자 매칭률</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="group" id="catFilters"></div>
+    <div class="sep"></div>
+    <div class="group" id="statusFilters"></div>
+    <div class="sep"></div>
+    <div class="group">
+      <label>최소 횟수 <input type="range" id="minCount" min="1" max="10" value="1"><span id="minCountVal">1</span></label>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <input type="text" id="searchBox" placeholder="이름 검색 (예: 이색)">
+    </div>
+    <div class="sep"></div>
+    <div class="group">
+      <button class="toggle-btn active" id="viewGraphBtn">네트워크</button>
+      <button class="toggle-btn" id="viewTableBtn">표</button>
+    </div>
+  </div>
+
+  <div class="stage">
+    <svg id="graph"></svg>
+    <div class="table-wrap" id="tableWrap" hidden>
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th data-key="author_name">저자</th>
+            <th data-key="recipient_name">수신자</th>
+            <th data-key="category">분류</th>
+            <th data-key="count" class="num">횟수</th>
+            <th data-key="contemporary_status">시대 관계</th>
+            <th data-key="author_years">저자 생몰</th>
+            <th data-key="recipient_years">수신자 생몰</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <footer>
+    <b>읽는 법:</b> 실선 = 생몰년이 겹치는 동시대 교류. 점선(회색) = 동시대가 아님(대개 &lsquo;차운&rsquo;으로 후대 사람이 옛 시인의 운을 빌려 지은 것 — 실제 왕래가 아닌 문학적 오마주). 굵은 빨강 점선 = 저자가 수신자보다 먼저 사망 — 시간상 불가능하므로 인물 매칭 오류일 가능성이 높습니다.<br>
+    <b>한계:</b> 수신자 후보 18,433건 중 7.8%만 이 99명 목록 안에서 매칭되었습니다(나머지는 목록 밖 인물이거나 추출 노이즈). 매칭되지 않은 항목은 별도 검토가 필요합니다.
+  </footer>
+</div>
+
+<script>
+const DATA = __DATA_JSON__;
+
+const CATS = [
+  {key:"증정", color:"var(--cat-1)"},
+  {key:"기증", color:"var(--cat-2)"},
+  {key:"수답", color:"var(--cat-3)"},
+  {key:"화답", color:"var(--cat-4)"},
+  {key:"차운", color:"var(--cat-5)"},
+  {key:"송별", color:"var(--cat-6)"},
+  {key:"서간", color:"var(--cat-7)"},
+  {key:"만사", color:"var(--cat-8)"},
+];
+const STATUS_LABEL = {
+  contemporary: "동시대",
+  non_contemporary: "비동시대(오마주 추정)",
+  impossible: "시간 역행(오류 의심)",
+  unknown: "생몰년 정보 부족",
+};
+
+const root = document.currentScript.previousElementSibling;
+const svg = root.querySelector("#graph");
+const tooltip = root.querySelector("#tooltip");
+const stage = root.querySelector(".stage");
+
+// ---------- build node/edge working data ----------
+const nodeById = new Map(DATA.nodes.map(n => [n.id, Object.assign({}, n)]));
+const degree = new Map();
+DATA.edges.forEach(e => {
+  degree.set(e.source, (degree.get(e.source)||0) + e.count);
+  degree.set(e.target, (degree.get(e.target)||0) + e.count);
+});
+nodeById.forEach((n, id) => { n.degree = degree.get(id) || 0; });
+
+const nodes = Array.from(nodeById.values());
+const maxDeg = Math.max(...nodes.map(n => n.degree), 1);
+nodes.forEach(n => { n.r = 5 + 13 * Math.sqrt(n.degree / maxDeg); });
+
+const links = DATA.edges.map(e => Object.assign({}, e, {
+  s: nodeById.get(e.source), t: nodeById.get(e.target),
+}));
+
+root.querySelector("#statNodes").textContent = nodes.length;
+root.querySelector("#statEdges").textContent = links.length;
+
+// ---------- force simulation (self-contained, no deps) ----------
+const W = 900, H = 620;
+nodes.forEach((n, i) => {
+  const a = (i / nodes.length) * Math.PI * 2;
+  const rad = 200 + (i % 5) * 30;
+  n.x = W/2 + rad * Math.cos(a);
+  n.y = H/2 + rad * Math.sin(a);
+  n.vx = 0; n.vy = 0;
+});
+
+function runSimulation(steps) {
+  const linkCounts = new Map();
+  links.forEach(l => {
+    const k = l.s.id < l.t.id ? l.s.id+"|"+l.t.id : l.t.id+"|"+l.s.id;
+    linkCounts.set(k, (linkCounts.get(k)||0) + 1);
+  });
+  for (let step = 0; step < steps; step++) {
+    const alpha = Math.max(0.02, 1 - step / steps);
+    // repulsion
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i+1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let d2 = dx*dx + dy*dy;
+        if (d2 < 1) d2 = 1;
+        const d = Math.sqrt(d2);
+        const force = (2200 * alpha) / d2;
+        const fx = (dx/d) * force, fy = (dy/d) * force;
+        a.vx += fx; a.vy += fy;
+        b.vx -= fx; b.vy -= fy;
+      }
+    }
+    // springs
+    links.forEach(l => {
+      const dx = l.t.x - l.s.x, dy = l.t.y - l.s.y;
+      const d = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+      const target = 90;
+      const force = (d - target) * 0.02 * alpha;
+      const fx = (dx/d) * force, fy = (dy/d) * force;
+      l.s.vx += fx; l.s.vy += fy;
+      l.t.vx -= fx; l.t.vy -= fy;
+    });
+    // centering
+    nodes.forEach(n => {
+      n.vx += (W/2 - n.x) * 0.002 * alpha;
+      n.vy += (H/2 - n.y) * 0.002 * alpha;
+    });
+    // integrate + damping
+    nodes.forEach(n => {
+      if (n.fixed) return;
+      n.vx *= 0.82; n.vy *= 0.82;
+      n.x += n.vx; n.y += n.vy;
+    });
+  }
+}
+runSimulation(320);
+
+// ---------- render ----------
+const svgNS = "http://www.w3.org/2000/svg";
+svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+const gWrap = document.createElementNS(svgNS, "g");
+const gEdges = document.createElementNS(svgNS, "g");
+const gNodes = document.createElementNS(svgNS, "g");
+gWrap.appendChild(gEdges); gWrap.appendChild(gNodes);
+svg.appendChild(gWrap);
+
+function catColor(cat) {
+  const found = CATS.find(c => c.key === cat);
+  return found ? found.color : "var(--text-muted)";
+}
+function edgeDash(status) {
+  if (status === "impossible") return "2,3";
+  if (status === "non_contemporary") return "6,4";
+  if (status === "unknown") return "1,4";
+  return "none";
+}
+function edgeColor(status, cat) {
+  if (status === "impossible") return "var(--critical)";
+  return catColor(cat);
+}
+function edgeWidth(count) {
+  return Math.min(6, 1 + Math.log2(count + 1) * 1.1);
+}
+
+const linkEls = links.map(l => {
+  const path = document.createElementNS(svgNS, "line");
+  path.setAttribute("class", "edge");
+  path.setAttribute("stroke", edgeColor(l.status, l.category));
+  path.setAttribute("stroke-width", edgeWidth(l.count));
+  path.setAttribute("stroke-dasharray", edgeDash(l.status));
+  path.setAttribute("stroke-linecap", "round");
+  path.style.opacity = l.status === "impossible" ? 0.55 : 0.7;
+  path.dataset.category = l.category;
+  path.dataset.status = l.status;
+  path.dataset.source = l.source;
+  path.dataset.target = l.target;
+  gEdges.appendChild(path);
+  path.addEventListener("pointerenter", (ev) => showEdgeTooltip(ev, l));
+  path.addEventListener("pointermove", positionTooltip);
+  path.addEventListener("pointerleave", hideTooltip);
+  return { el: path, data: l };
+});
+
+const nodeEls = nodes.map(n => {
+  const g = document.createElementNS(svgNS, "g");
+  g.setAttribute("class", "node");
+  g.dataset.id = n.id;
+  const circle = document.createElementNS(svgNS, "circle");
+  circle.setAttribute("r", n.r);
+  circle.setAttribute("fill", "var(--text-muted)");
+  const text = document.createElementNS(svgNS, "text");
+  text.textContent = n.name;
+  text.setAttribute("x", n.r + 4);
+  text.setAttribute("y", 3);
+  text.style.opacity = n.degree >= maxDeg * 0.18 ? 1 : 0;
+  g.appendChild(circle); g.appendChild(text);
+  gNodes.appendChild(g);
+
+  g.addEventListener("pointerenter", (ev) => { text.style.opacity = 1; showNodeTooltip(ev, n); highlightNode(n.id); });
+  g.addEventListener("pointermove", positionTooltip);
+  g.addEventListener("pointerleave", () => {
+    if (n.degree < maxDeg * 0.18) text.style.opacity = 0;
+    hideTooltip(); clearHighlight();
+  });
+  g.addEventListener("pointerdown", (ev) => startDrag(ev, n));
+  return { el: g, circle, text, data: n };
+});
+
+function tick() {
+  linkEls.forEach(({el, data}) => {
+    el.setAttribute("x1", data.s.x); el.setAttribute("y1", data.s.y);
+    el.setAttribute("x2", data.t.x); el.setAttribute("y2", data.t.y);
+  });
+  nodeEls.forEach(({el, data}) => {
+    el.setAttribute("transform", "translate(" + data.x + "," + data.y + ")");
+  });
+}
+tick();
+
+// ---------- tooltip ----------
+function showNodeTooltip(ev, n) {
+  tooltip.innerHTML = "";
+  const title = document.createElement("div");
+  title.className = "t-title";
+  title.textContent = n.name + (n.hanja ? " (" + n.hanja + ")" : "");
+  tooltip.appendChild(title);
+  const rows = [
+    ["호", n.ho || "–"],
+    ["왕조", n.dynasty],
+    ["생몰", (n.birth||"?") + "–" + (n.death||"?")],
+    ["문집", n.collection],
+    ["교류 총량", String(n.degree)],
+  ];
+  rows.forEach(([k,v]) => {
+    const r = document.createElement("div");
+    r.className = "t-row";
+    const b = document.createElement("b"); b.textContent = v;
+    r.appendChild(document.createTextNode(k + ": "));
+    r.appendChild(b);
+    tooltip.appendChild(r);
+  });
+  tooltip.classList.add("show");
+  positionTooltip(ev);
+}
+function showEdgeTooltip(ev, l) {
+  tooltip.innerHTML = "";
+  const title = document.createElement("div");
+  title.className = "t-title";
+  title.textContent = l.s.name + " → " + l.t.name;
+  tooltip.appendChild(title);
+  const rows = [
+    ["분류", l.category],
+    ["횟수", String(l.count)],
+    ["저자 생몰", (l.s.birth||"?") + "–" + (l.s.death||"?")],
+    ["수신자 생몰", (l.t.birth||"?") + "–" + (l.t.death||"?")],
+  ];
+  rows.forEach(([k,v]) => {
+    const r = document.createElement("div");
+    r.className = "t-row";
+    const b = document.createElement("b"); b.textContent = v;
+    r.appendChild(document.createTextNode(k + ": "));
+    r.appendChild(b);
+    tooltip.appendChild(r);
+  });
+  const statusRow = document.createElement("div");
+  statusRow.className = "t-row" + (l.status === "impossible" ? " t-warn" : "");
+  statusRow.textContent = (l.status === "impossible" ? "⚠ " : "") + STATUS_LABEL[l.status];
+  tooltip.appendChild(statusRow);
+  tooltip.classList.add("show");
+  positionTooltip(ev);
+}
+function positionTooltip(ev) {
+  const rect = stage.getBoundingClientRect();
+  let x = ev.clientX - rect.left + 14;
+  let y = ev.clientY - rect.top + 14;
+  if (x + 240 > rect.width) x = ev.clientX - rect.left - 254;
+  tooltip.style.left = x + "px";
+  tooltip.style.top = y + "px";
+}
+function hideTooltip() { tooltip.classList.remove("show"); }
+
+// ---------- highlight on node hover ----------
+function highlightNode(id) {
+  const neighbors = new Set([id]);
+  linkEls.forEach(({el, data}) => {
+    if (data.source === id || data.target === id) {
+      neighbors.add(data.source); neighbors.add(data.target);
+      el.classList.add("hi"); el.style.setProperty("--hi-width", edgeWidth(data.count) + 1 + "px");
+    } else {
+      el.classList.add("dim");
+    }
+  });
+  nodeEls.forEach(({el, data}) => {
+    if (!neighbors.has(data.id)) el.classList.add("dim");
+  });
+}
+function clearHighlight() {
+  linkEls.forEach(({el}) => { el.classList.remove("hi"); el.classList.remove("dim"); });
+  nodeEls.forEach(({el}) => el.classList.remove("dim"));
+  applyFilters();
+}
+
+// ---------- drag ----------
+let dragging = null;
+function startDrag(ev, n) {
+  dragging = n; n.fixed = true;
+  svg.setPointerCapture(ev.pointerId);
+  svg.addEventListener("pointermove", onDrag);
+  svg.addEventListener("pointerup", endDrag, { once: true });
+}
+function svgPoint(ev) {
+  const pt = svg.createSVGPoint();
+  pt.x = ev.clientX; pt.y = ev.clientY;
+  const ctm = gWrap.getScreenCTM().inverse();
+  return pt.matrixTransform(ctm);
+}
+function onDrag(ev) {
+  if (!dragging) return;
+  const p = svgPoint(ev);
+  dragging.x = p.x; dragging.y = p.y;
+  dragging.vx = 0; dragging.vy = 0;
+  tick();
+}
+function endDrag() {
+  svg.removeEventListener("pointermove", onDrag);
+  dragging = null;
+}
+
+// ---------- pan & zoom ----------
+let viewX = 0, viewY = 0, viewScale = 1;
+let panning = false, panStart = null;
+svg.addEventListener("pointerdown", (ev) => {
+  if (ev.target === svg) {
+    panning = true; panStart = { x: ev.clientX, y: ev.clientY, vx: viewX, vy: viewY };
+    svg.classList.add("panning");
+  }
+});
+window.addEventListener("pointermove", (ev) => {
+  if (!panning) return;
+  viewX = panStart.vx + (ev.clientX - panStart.x) / viewScale;
+  viewY = panStart.vy + (ev.clientY - panStart.y) / viewScale;
+  applyTransform();
+});
+window.addEventListener("pointerup", () => { panning = false; svg.classList.remove("panning"); });
+svg.addEventListener("wheel", (ev) => {
+  ev.preventDefault();
+  const delta = ev.deltaY > 0 ? 0.9 : 1.1;
+  viewScale = Math.min(3, Math.max(0.4, viewScale * delta));
+  applyTransform();
+}, { passive: false });
+function applyTransform() {
+  gWrap.setAttribute("transform", "scale(" + viewScale + ") translate(" + viewX + "," + viewY + ")");
+}
+
+// ---------- filters ----------
+const catFiltersEl = root.querySelector("#catFilters");
+const statusFiltersEl = root.querySelector("#statusFilters");
+const activeCats = new Set(CATS.map(c => c.key));
+const activeStatus = new Set(["contemporary", "non_contemporary", "impossible", "unknown"]);
+
+CATS.forEach(c => {
+  const label = document.createElement("label");
+  const cb = document.createElement("input");
+  cb.type = "checkbox"; cb.checked = true;
+  cb.addEventListener("change", () => {
+    cb.checked ? activeCats.add(c.key) : activeCats.delete(c.key);
+    applyFilters();
+  });
+  const sw = document.createElement("span");
+  sw.className = "swatch"; sw.style.background = c.color;
+  label.appendChild(cb); label.appendChild(sw); label.appendChild(document.createTextNode(c.key));
+  catFiltersEl.appendChild(label);
+});
+
+const STATUS_ORDER = [
+  ["contemporary", "동시대"],
+  ["non_contemporary", "비동시대"],
+  ["impossible", "⚠오류의심"],
+  ["unknown", "정보부족"],
+];
+STATUS_ORDER.forEach(([key, label_]) => {
+  const label = document.createElement("label");
+  const cb = document.createElement("input");
+  cb.type = "checkbox"; cb.checked = true;
+  cb.addEventListener("change", () => {
+    cb.checked ? activeStatus.add(key) : activeStatus.delete(key);
+    applyFilters();
+  });
+  label.appendChild(cb); label.appendChild(document.createTextNode(label_));
+  statusFiltersEl.appendChild(label);
+});
+
+const minCountEl = root.querySelector("#minCount");
+const minCountVal = root.querySelector("#minCountVal");
+minCountEl.addEventListener("input", () => {
+  minCountVal.textContent = minCountEl.value;
+  applyFilters();
+});
+
+const searchBox = root.querySelector("#searchBox");
+searchBox.addEventListener("input", applyFilters);
+
+function applyFilters() {
+  const q = searchBox.value.trim();
+  const minCount = parseInt(minCountEl.value, 10);
+  const visibleNodeIds = new Set();
+
+  linkEls.forEach(({el, data}) => {
+    const passCat = activeCats.has(data.category);
+    const passStatus = activeStatus.has(data.status);
+    const passCount = data.count >= minCount;
+    const passSearch = !q || data.s.name.includes(q) || data.t.name.includes(q);
+    const visible = passCat && passStatus && passCount && passSearch;
+    el.style.display = visible ? "" : "none";
+    el.classList.remove("dim"); el.classList.remove("hi");
+    if (visible) { visibleNodeIds.add(data.source); visibleNodeIds.add(data.target); }
+  });
+
+  nodeEls.forEach(({el, data, text}) => {
+    const visible = visibleNodeIds.has(data.id);
+    el.style.display = visible ? "" : "none";
+    el.classList.remove("dim");
+    if (q && data.name.includes(q)) {
+      text.style.opacity = 1;
+      el.querySelector("circle").setAttribute("stroke", "var(--critical)");
+      el.querySelector("circle").setAttribute("stroke-width", "2.5px");
+    } else {
+      el.querySelector("circle").setAttribute("stroke", "var(--surface-1)");
+      el.querySelector("circle").setAttribute("stroke-width", "1.5px");
+      text.style.opacity = data.degree >= maxDeg * 0.18 ? 1 : 0;
+    }
+  });
+
+  renderTable();
+}
+
+// ---------- legend ----------
+const legendEl = root.querySelector("#legend");
+CATS.forEach(c => {
+  const item = document.createElement("div");
+  item.className = "item";
+  const sw = document.createElement("span");
+  sw.className = "swatch"; sw.style.background = c.color;
+  item.appendChild(sw); item.appendChild(document.createTextNode(c.key));
+  legendEl.appendChild(item);
+});
+[
+  ["line", "동시대(실선)"],
+  ["line dashed", "비동시대(점선)"],
+  ["line dotted", "⚠ 시간 역행(굵은 점선, 빨강)"],
+].forEach(([cls, label]) => {
+  const item = document.createElement("div");
+  item.className = "item";
+  const ln = document.createElement("span");
+  ln.className = cls;
+  if (cls.includes("dotted")) ln.style.borderTopColor = "var(--critical)";
+  item.appendChild(ln); item.appendChild(document.createTextNode(label));
+  legendEl.appendChild(item);
+});
+
+// ---------- table view ----------
+const tableBody = root.querySelector("#tableBody");
+let sortKey = "count", sortDir = -1;
+root.querySelectorAll("#dataTable th").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    sortDir = (sortKey === key) ? -sortDir : -1;
+    sortKey = key;
+    renderTable();
+  });
+});
+
+function renderTable() {
+  const q = searchBox.value.trim();
+  const minCount = parseInt(minCountEl.value, 10);
+  let rows = links.filter(l =>
+    activeCats.has(l.category) && activeStatus.has(l.status) && l.count >= minCount &&
+    (!q || l.s.name.includes(q) || l.t.name.includes(q))
+  );
+  rows = rows.slice().sort((a, b) => {
+    let av, bv;
+    if (sortKey === "author_name") { av = a.s.name; bv = b.s.name; }
+    else if (sortKey === "recipient_name") { av = a.t.name; bv = b.t.name; }
+    else if (sortKey === "author_years") { av = a.s.birth; bv = b.s.birth; }
+    else if (sortKey === "recipient_years") { av = a.t.birth; bv = b.t.birth; }
+    else if (sortKey === "count") { av = a.count; bv = b.count; }
+    else { av = a[sortKey]; bv = b[sortKey]; }
+    if (av < bv) return -1 * sortDir; if (av > bv) return 1 * sortDir; return 0;
+  });
+  tableBody.innerHTML = "";
+  rows.forEach(l => {
+    const tr = document.createElement("tr");
+    const cells = [
+      l.s.name, l.t.name, l.category, null, null, (l.s.birth||"?")+"–"+(l.s.death||"?"), (l.t.birth||"?")+"–"+(l.t.death||"?"),
+    ];
+    cells.forEach((v, i) => {
+      const td = document.createElement("td");
+      if (i === 3) { td.className = "num"; td.textContent = l.count; }
+      else if (i === 4) {
+        const pill = document.createElement("span");
+        pill.className = "status-pill " + l.status;
+        pill.textContent = STATUS_LABEL[l.status];
+        td.appendChild(pill);
+      } else { td.textContent = v; }
+      tr.appendChild(td);
+    });
+    tableBody.appendChild(tr);
+  });
+}
+
+// ---------- view toggle ----------
+const graphBtn = root.querySelector("#viewGraphBtn");
+const tableBtn = root.querySelector("#viewTableBtn");
+const tableWrap = root.querySelector("#tableWrap");
+graphBtn.addEventListener("click", () => {
+  graphBtn.classList.add("active"); tableBtn.classList.remove("active");
+  svg.style.display = ""; tableWrap.hidden = true;
+});
+tableBtn.addEventListener("click", () => {
+  tableBtn.classList.add("active"); graphBtn.classList.remove("active");
+  svg.style.display = "none"; tableWrap.hidden = false;
+  renderTable();
+});
+
+applyFilters();
+</script>
