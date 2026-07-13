@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent.parent
-TEMPLATE_PATH = BASE / "viz" / "template.html"
+TEMPLATE_PATH = BASE / "docs" / "template.html"
 
 VARIANTS = [
     {
@@ -62,7 +62,7 @@ def main():
         html = html.replace("__DATA_JSON__", json.dumps(data, ensure_ascii=False))
         html = f"<title>{v['title']}</title>\n" + html
 
-        out_path = BASE / "viz" / v["out_file"]
+        out_path = BASE / "docs" / v["out_file"]
         out_path.write_text(html, encoding="utf-8")
         print(f"{v['out_file']}: {out_path.stat().st_size} bytes")
 

@@ -4,10 +4,12 @@
 
 ## 결과 보기
 
-- [`viz/network.html`](viz/network.html) — 파일럿 99명 전체 네트워크
-- [`viz/network_15c.html`](viz/network_15c.html) — 15세기(1400~1499) 사대부만 필터링한 네트워크
+GitHub Pages: **https://chjk86.github.io/hansi-network/**
 
-GitHub Pages로 배포된 경우 브라우저에서 바로 열립니다. 카테고리(증정/기증/수답/화답/차운/송별/서간/만사)·동시대 여부 필터, 인물 검색, 표 보기를 지원합니다.
+- [`docs/network.html`](docs/network.html) — 파일럿 99명 전체 네트워크
+- [`docs/network_15c.html`](docs/network_15c.html) — 15세기(1400~1499) 사대부만 필터링한 네트워크
+
+카테고리(증정/기증/수답/화답/차운/송별/서간/만사)·동시대 여부 필터, 인물 검색, 표 보기를 지원합니다.
 
 ## 파이프라인
 
@@ -29,7 +31,7 @@ output/edges.csv                저자↔수신자 교류 빈도
 output/edges_annotated.csv      생몰년 기반 동시대 여부 태깅 추가
         │  src/build_viz_data.py + src/build_viz_html.py
         ▼
-viz/network.html, viz/network_15c.html
+docs/network.html, docs/network_15c.html
 ```
 
 `src/merge_hanja_backfill.py`는 저자 조사 과정에서 호/자에 한자가 누락된 경우를 보완하는 1회성 스크립트입니다.
