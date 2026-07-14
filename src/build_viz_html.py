@@ -20,6 +20,12 @@ VARIANTS = [
             '<div class="stat"><b id="statPoems">362,130</b> 시 전체</div>\n'
             '      <div class="stat"><b id="statMatchRate">14.4%</b> 수신자 매칭률</div>'
         ),
+        "footer_limits": (
+            "수신자 후보 163,961건 중 14.4%(23,624건)만 이 651명 목록 안에서 매칭되었습니다"
+            "(나머지는 목록 밖 인물이거나 추출 노이즈). 모호 매칭 5,303건은 동명이인 등으로 "
+            "귀속하지 않고 별도 기록했습니다. 매칭되지 않은/모호한 항목은 저장소의 "
+            "unmatched_recipients.csv·ambiguous_matches.csv에서 확인할 수 있습니다."
+        ),
     },
     {
         "data_file": "network_data_15c.json",
@@ -34,6 +40,11 @@ VARIANTS = [
         "extra_stats": (
             '<div class="stat"><b>15세기</b> (1400–1499) 필터</div>\n'
             '      <div class="stat"><b>651명 전체 결과는</b> 별도 네트워크 참고</div>'
+        ),
+        "footer_limits": (
+            "이 필터는 651명 전체 결과(위 네트워크와 동일한 매칭 로직)에서 생몰년만 15세기로 "
+            "추려낸 것이라, 전체 네트워크와 같은 매칭 한계(14.4% 매칭률, 모호 매칭 등)를 그대로 "
+            "가지고 있습니다."
         ),
     },
 ]
@@ -57,6 +68,7 @@ def main():
         end = html.index("</p>", start) + len("</p>")
         html = html[:start] + f'<p class="subtitle">{v["subtitle"]}</p>' + html[end:]
         html = html.replace(DEFAULT_STATS, v["extra_stats"])
+        html = html.replace("__FOOTER_LIMITS__", v["footer_limits"])
 
         data = json.loads((BASE / "output" / v["data_file"]).read_text(encoding="utf-8"))
         html = html.replace("__DATA_JSON__", json.dumps(data, ensure_ascii=False))

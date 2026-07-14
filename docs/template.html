@@ -218,7 +218,8 @@
 
   <footer>
     <b>읽는 법:</b> 실선 = 생몰년이 겹치는 동시대 교류. 점선(회색) = 동시대가 아님(대개 &lsquo;차운&rsquo;으로 후대 사람이 옛 시인의 운을 빌려 지은 것 — 실제 왕래가 아닌 문학적 오마주). 굵은 빨강 점선 = 저자가 수신자보다 먼저 사망 — 시간상 불가능하므로 인물 매칭 오류일 가능성이 높습니다.<br>
-    <b>한계:</b> 수신자 후보 18,433건 중 7.8%만 이 99명 목록 안에서 매칭되었습니다(나머지는 목록 밖 인물이거나 추출 노이즈). 매칭되지 않은 항목은 별도 검토가 필요합니다.
+    <b>조작:</b> 노드에 마우스를 올리면 연결 관계가 강조되고, 드래그로 위치를 옮길 수 있습니다. 그래프가 뭉쳐 보이면 &ldquo;간격&rdquo; 슬라이더로 펼친 뒤, 마우스 휠로 축소하거나 더블클릭해 전체 보기로 돌아오세요.<br>
+    <b>한계:</b> __FOOTER_LIMITS__
   </footer>
 </div>
 
@@ -659,10 +660,11 @@ function applySpread() {
   const spread = parseFloat(spreadSlider.value);
   spreadVal.textContent = spread.toFixed(1) + "x";
   // 현재 좌표에서 이어서 재계산 (처음부터 다시 배치하지 않음) - 스텝 수는 상호작용용으로 적게
+  // 주의: 여기서 fitToView()를 다시 부르면 커진 그래프를 도로 줄여서 꽉 채우기 때문에
+  // 화면상으로는 아무 변화가 없어 보인다 - 그래서 확대/축소는 사용자가 직접 조정하게 둔다.
   requestAnimationFrame(() => {
     runSimulation(70, spread);
     tick();
-    fitToView();
     spreadRunning = false;
   });
 }
