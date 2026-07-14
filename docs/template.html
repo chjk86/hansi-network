@@ -135,7 +135,16 @@
 }
 .viz-root table#dataTable th:hover { color: var(--text-primary); }
 .viz-root table#dataTable td.num { font-variant-numeric: tabular-nums; text-align: right; }
+.viz-root table#dataTable tbody tr.data-row { cursor: pointer; }
 .viz-root table#dataTable tbody tr:hover { background: var(--page); }
+.viz-root table#dataTable tbody tr.data-row td:first-child::before {
+  content: "▸ "; color: var(--text-muted); display: inline-block; width: 10px;
+}
+.viz-root table#dataTable tbody tr.data-row.expanded td:first-child::before { content: "▾ "; }
+.viz-root .poem-detail td { background: var(--page); padding: 10px 14px; }
+.viz-root .poem-list { margin: 0; padding-left: 18px; max-height: 220px; overflow-y: auto; }
+.viz-root .poem-list li { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+.viz-root .poem-list .p-collection { color: var(--text-muted); font-size: 11px; }
 .viz-root .table-wrap { max-height: 62vh; overflow: auto; }
 .viz-root .status-pill {
   display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 10.5px;
@@ -256,20 +265,26 @@ root.querySelector("#statEdges").textContent = links.length;
 
 // ---------- force simulation (self-contained, no deps) ----------
 const W = 900, H = 620;
+// 해바라기 나선(sunflower spiral) 배치: 노드 수가 늘어도 이웃 간 초기 간격이
+// 거의 일정하게 유지된다 (예전의 5개 동심원 배치는 노드가 많아지면 한 원 위에
+// 수백 개가 다닥다닥 붙어서 시작해, 첫 스텝에 반발력이 폭발적으로 커지는 문제가 있었다).
+const GOLDEN_ANGLE = 2.399963;
 nodes.forEach((n, i) => {
-  const a = (i / nodes.length) * Math.PI * 2;
-  const rad = 200 + (i % 5) * 30;
-  n.x = W/2 + rad * Math.cos(a);
-  n.y = H/2 + rad * Math.sin(a);
+  const rad = 6 * Math.sqrt(i + 1);
+  const ang = i * GOLDEN_ANGLE;
+  n.x = W/2 + rad * Math.cos(ang);
+  n.y = H/2 + rad * Math.sin(ang);
   n.vx = 0; n.vy = 0;
 });
 
 function runSimulation(steps) {
-  const linkCounts = new Map();
-  links.forEach(l => {
-    const k = l.s.id < l.t.id ? l.s.id+"|"+l.t.id : l.t.id+"|"+l.s.id;
-    linkCounts.set(k, (linkCounts.get(k)||0) + 1);
-  });
+  // 반발력에 유효 거리 상한을 둔다 (Barnes-Hut 근사 없이도, 노드 수가 많아질수록
+  // 전체 그래프가 한없이 넓어져 화면에 담기지도, 개별 노드가 보이지도 않게 되는 것을 방지).
+  const maxRepelDist = 280;
+  const maxRepelDist2 = maxRepelDist * maxRepelDist;
+  // 노드가 많을수록 중심으로 당기는 힘을 약간 더 세게 줘서 전체 퍼짐을 억제한다.
+  const centerStrength = 0.002 * Math.max(1, Math.sqrt(nodes.length / 100));
+
   for (let step = 0; step < steps; step++) {
     const alpha = Math.max(0.02, 1 - step / steps);
     // repulsion
@@ -278,6 +293,7 @@ function runSimulation(steps) {
         const a = nodes[i], b = nodes[j];
         let dx = a.x - b.x, dy = a.y - b.y;
         let d2 = dx*dx + dy*dy;
+        if (d2 > maxRepelDist2) continue;
         if (d2 < 1) d2 = 1;
         const d = Math.sqrt(d2);
         const force = (2200 * alpha) / d2;
@@ -298,13 +314,18 @@ function runSimulation(steps) {
     });
     // centering
     nodes.forEach(n => {
-      n.vx += (W/2 - n.x) * 0.002 * alpha;
-      n.vy += (H/2 - n.y) * 0.002 * alpha;
+      n.vx += (W/2 - n.x) * centerStrength * alpha;
+      n.vy += (H/2 - n.y) * centerStrength * alpha;
     });
     // integrate + damping
     nodes.forEach(n => {
       if (n.fixed) return;
       n.vx *= 0.82; n.vy *= 0.82;
+      // 속도 상한: 근접한 여러 쌍이 겹쳐 한 스텝에 힘이 과하게 누적되어도
+      // 좌표가 발산하지 않도록 막는 안전장치 (노드 수가 많을수록 필수적).
+      const speed = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
+      const maxSpeed = 40;
+      if (speed > maxSpeed) { n.vx = n.vx / speed * maxSpeed; n.vy = n.vy / speed * maxSpeed; }
       n.x += n.vx; n.y += n.vy;
     });
   }
@@ -536,7 +557,7 @@ function fitToView() {
   });
   const bboxW = Math.max(1, maxX - minX), bboxH = Math.max(1, maxY - minY);
   viewScale = Math.min((W - 2*pad) / bboxW, (H - 2*pad) / bboxH, 1.4);
-  viewScale = Math.max(viewScale, 0.05);
+  if (!isFinite(viewScale) || viewScale <= 0) viewScale = 1;
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
   viewX = W / (2 * viewScale) - cx;
   viewY = H / (2 * viewScale) - cy;
@@ -560,7 +581,7 @@ window.addEventListener("pointerup", () => { panning = false; svg.classList.remo
 svg.addEventListener("wheel", (ev) => {
   ev.preventDefault();
   const delta = ev.deltaY > 0 ? 0.9 : 1.1;
-  viewScale = Math.min(3, Math.max(0.05, viewScale * delta));
+  viewScale = Math.min(3, Math.max(0.01, viewScale * delta));
   applyTransform();
 }, { passive: false });
 svg.addEventListener("dblclick", () => fitToView());
@@ -712,6 +733,7 @@ function renderTable() {
   tableBody.innerHTML = "";
   rows.forEach(l => {
     const tr = document.createElement("tr");
+    tr.className = "data-row";
     const cells = [
       l.s.name, l.t.name, l.category, null, null, (l.s.birth||"?")+"–"+(l.s.death||"?"), (l.t.birth||"?")+"–"+(l.t.death||"?"),
     ];
@@ -726,7 +748,39 @@ function renderTable() {
       } else { td.textContent = v; }
       tr.appendChild(td);
     });
+
+    const detailTr = document.createElement("tr");
+    detailTr.className = "poem-detail";
+    detailTr.hidden = true;
+    const detailTd = document.createElement("td");
+    detailTd.colSpan = cells.length;
+    const poems = l.poems || [];
+    if (poems.length) {
+      const ul = document.createElement("ul");
+      ul.className = "poem-list";
+      poems.forEach(p => {
+        const li = document.createElement("li");
+        li.appendChild(document.createTextNode(p.title + " "));
+        const span = document.createElement("span");
+        span.className = "p-collection";
+        span.textContent = "(" + p.collection + ")";
+        li.appendChild(span);
+        ul.appendChild(li);
+      });
+      detailTd.appendChild(ul);
+    } else {
+      detailTd.textContent = "원문 제목 정보 없음";
+    }
+    detailTr.appendChild(detailTd);
+
+    tr.addEventListener("click", () => {
+      const willShow = detailTr.hidden;
+      detailTr.hidden = !willShow;
+      tr.classList.toggle("expanded", willShow);
+    });
+
     tableBody.appendChild(tr);
+    tableBody.appendChild(detailTr);
   });
 }
 

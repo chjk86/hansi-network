@@ -7,6 +7,7 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent.parent
 AUTHORS_PATH = BASE / "data" / "mapping" / "authors.csv"
 EDGES_PATH = BASE / "output" / "edges_annotated.csv"
+POEM_MATCHES_PATH = BASE / "output" / "poem_matches.csv"
 
 YEAR_RE = re.compile(r"\d+")
 
@@ -18,7 +19,19 @@ def parse_year(s):
     return int(m.group()) if m else None
 
 
-def build_json(authors, edges, node_ids, out_path):
+def load_poem_index():
+    """(author_id, recipient_id, category) -> [{title, collection}, ...]"""
+    index = {}
+    with POEM_MATCHES_PATH.open(encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            key = (row["author_id"], row["recipient_id"], row["category"])
+            index.setdefault(key, []).append({
+                "title": row["title"], "collection": row["collection_name"],
+            })
+    return index
+
+
+def build_json(authors, edges, node_ids, out_path, poem_index):
     nodes = []
     for cid in sorted(node_ids):
         a = authors[cid]
@@ -27,10 +40,14 @@ def build_json(authors, edges, node_ids, out_path):
             "ho": a["ho"], "dynasty": a["dynasty"], "birth": a["birth_year"],
             "death": a["death_year"], "collection": a["collection_name"],
         })
-    edge_out = [{
-        "source": e["author_id"], "target": e["recipient_id"],
-        "category": e["category"], "count": int(e["count"]), "status": e["contemporary_status"],
-    } for e in edges]
+    edge_out = []
+    for e in edges:
+        key = (e["author_id"], e["recipient_id"], e["category"])
+        edge_out.append({
+            "source": e["author_id"], "target": e["recipient_id"],
+            "category": e["category"], "count": int(e["count"]), "status": e["contemporary_status"],
+            "poems": poem_index.get(key, []),
+        })
     data = {"nodes": nodes, "edges": edge_out}
     out_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     print(f"{out_path.name}: nodes={len(nodes)} edges={len(edge_out)}")
@@ -41,12 +58,13 @@ def main():
         authors = {r["collection_id"]: r for r in csv.DictReader(f)}
     with EDGES_PATH.open(encoding="utf-8-sig") as f:
         edges = list(csv.DictReader(f))
+    poem_index = load_poem_index()
 
-    # 전체 파일럿
+    # 전체
     all_ids = set()
     for e in edges:
         all_ids.add(e["author_id"]); all_ids.add(e["recipient_id"])
-    build_json(authors, edges, all_ids, BASE / "output" / "network_data.json")
+    build_json(authors, edges, all_ids, BASE / "output" / "network_data.json", poem_index)
 
     # 15세기(1400-1499)에 생몰년이 걸치는 인물만
     c15_ids = set()
@@ -63,7 +81,7 @@ def main():
     c15_node_ids = set()
     for e in c15_edges:
         c15_node_ids.add(e["author_id"]); c15_node_ids.add(e["recipient_id"])
-    build_json(authors, c15_edges, c15_node_ids, BASE / "output" / "network_data_15c.json")
+    build_json(authors, c15_edges, c15_node_ids, BASE / "output" / "network_data_15c.json", poem_index)
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ RECIPIENTS_PATH = BASE / "output" / "title_recipients.csv"
 EDGES_OUT = BASE / "output" / "edges.csv"
 UNMATCHED_OUT = BASE / "output" / "unmatched_recipients.csv"
 AMBIGUOUS_OUT = BASE / "output" / "ambiguous_matches.csv"
+POEM_MATCHES_OUT = BASE / "output" / "poem_matches.csv"
 
 MIN_ALIAS_LEN = 2  # 한 글자짜리 성씨만으로는 매칭하지 않음 (오탐 방지)
 
@@ -108,6 +109,7 @@ def main():
     edge_counts = defaultdict(int)  # (author_id, recipient_id, category) -> count
     unmatched_counts = defaultdict(int)  # raw string -> count
     ambiguous_rows = []
+    poem_matches = []  # 표에서 개별 시 제목을 조회할 수 있도록 시 단위 매칭 결과도 보존
     matched = 0
     self_matches = 0
 
@@ -130,6 +132,14 @@ def main():
             continue
 
         edge_counts[(author_id, recipient_id, category)] += 1
+        poem_matches.append({
+            "author_id": author_id,
+            "recipient_id": recipient_id,
+            "category": category,
+            "collection_name": row["collection_name"],
+            "poem_seq": row["poem_seq"],
+            "title": row["title"],
+        })
         matched += 1
 
     edges = []
@@ -162,6 +172,12 @@ def main():
             writer.writeheader()
             writer.writerows(ambiguous_rows)
 
+    with POEM_MATCHES_OUT.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["author_id", "recipient_id", "category",
+                                                 "collection_name", "poem_seq", "title"])
+        writer.writeheader()
+        writer.writerows(poem_matches)
+
     total = len(recipient_rows)
     print(f"\nmatched (resolved to a known author): {matched} ({matched/total:.1%})")
     print(f"ambiguous (multiple authors share alias): {len(ambiguous_rows)} ({len(ambiguous_rows)/total:.1%})")
@@ -172,6 +188,7 @@ def main():
     print(f"edges written to: {EDGES_OUT}")
     print(f"unmatched raw strings written to: {UNMATCHED_OUT}")
     print(f"ambiguous matches written to: {AMBIGUOUS_OUT}")
+    print(f"poem-level matches written to: {POEM_MATCHES_OUT}")
 
 
 if __name__ == "__main__":
