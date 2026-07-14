@@ -309,7 +309,7 @@ function runSimulation(steps) {
     });
   }
 }
-runSimulation(320);
+runSimulation(nodes.length > 300 ? 150 : 320);
 
 // ---------- render ----------
 const svgNS = "http://www.w3.org/2000/svg";
@@ -572,6 +572,11 @@ minCountEl.addEventListener("input", () => {
   minCountVal.textContent = minCountEl.value;
   applyFilters();
 });
+// 큰 그래프는 기본값을 높여서 처음부터 한붓그리기처럼 뒤엉키지 않게 함
+if (links.length > 2000) {
+  minCountEl.value = 3;
+  minCountVal.textContent = "3";
+}
 
 const searchBox = root.querySelector("#searchBox");
 searchBox.addEventListener("input", applyFilters);
