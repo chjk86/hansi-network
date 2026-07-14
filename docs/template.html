@@ -180,6 +180,10 @@
     </div>
     <div class="sep"></div>
     <div class="group">
+      <label>간격 <input type="range" id="spreadSlider" min="0.4" max="3" step="0.1" value="1"><span id="spreadVal">1.0x</span></label>
+    </div>
+    <div class="sep"></div>
+    <div class="group">
       <input type="text" id="searchBox" placeholder="이름 검색 (예: 이색)">
     </div>
     <div class="sep"></div>
@@ -277,13 +281,19 @@ nodes.forEach((n, i) => {
   n.vx = 0; n.vy = 0;
 });
 
-function runSimulation(steps) {
+// spread: 1.0이 기본 간격. 값을 올리면 노드 사이를 더 벌리고, 내리면 더 뭉치게 한다
+// (컨트롤 바의 "간격" 슬라이더가 이 값을 실시간으로 바꿔 재계산을 트리거한다).
+function runSimulation(steps, spread) {
+  spread = spread || 1;
   // 반발력에 유효 거리 상한을 둔다 (Barnes-Hut 근사 없이도, 노드 수가 많아질수록
   // 전체 그래프가 한없이 넓어져 화면에 담기지도, 개별 노드가 보이지도 않게 되는 것을 방지).
-  const maxRepelDist = 280;
+  const maxRepelDist = 280 * spread;
   const maxRepelDist2 = maxRepelDist * maxRepelDist;
   // 노드가 많을수록 중심으로 당기는 힘을 약간 더 세게 줘서 전체 퍼짐을 억제한다.
-  const centerStrength = 0.002 * Math.max(1, Math.sqrt(nodes.length / 100));
+  // spread를 올리면 중심으로 당기는 힘은 상대적으로 약해져서 실제로 더 퍼진다.
+  const centerStrength = (0.002 * Math.max(1, Math.sqrt(nodes.length / 100))) / spread;
+  const repelStrength = 2200 * spread;
+  const springTarget = 90 * spread;
 
   for (let step = 0; step < steps; step++) {
     const alpha = Math.max(0.02, 1 - step / steps);
@@ -296,7 +306,7 @@ function runSimulation(steps) {
         if (d2 > maxRepelDist2) continue;
         if (d2 < 1) d2 = 1;
         const d = Math.sqrt(d2);
-        const force = (2200 * alpha) / d2;
+        const force = (repelStrength * alpha) / d2;
         const fx = (dx/d) * force, fy = (dy/d) * force;
         a.vx += fx; a.vy += fy;
         b.vx -= fx; b.vy -= fy;
@@ -306,8 +316,7 @@ function runSimulation(steps) {
     links.forEach(l => {
       const dx = l.t.x - l.s.x, dy = l.t.y - l.s.y;
       const d = Math.max(1, Math.sqrt(dx*dx + dy*dy));
-      const target = 90;
-      const force = (d - target) * 0.02 * alpha;
+      const force = (d - springTarget) * 0.02 * alpha;
       const fx = (dx/d) * force, fy = (dy/d) * force;
       l.s.vx += fx; l.s.vy += fy;
       l.t.vx -= fx; l.t.vy -= fy;
@@ -324,13 +333,13 @@ function runSimulation(steps) {
       // 속도 상한: 근접한 여러 쌍이 겹쳐 한 스텝에 힘이 과하게 누적되어도
       // 좌표가 발산하지 않도록 막는 안전장치 (노드 수가 많을수록 필수적).
       const speed = Math.sqrt(n.vx*n.vx + n.vy*n.vy);
-      const maxSpeed = 40;
+      const maxSpeed = 40 * spread;
       if (speed > maxSpeed) { n.vx = n.vx / speed * maxSpeed; n.vy = n.vy / speed * maxSpeed; }
       n.x += n.vx; n.y += n.vy;
     });
   }
 }
-runSimulation(nodes.length > 300 ? 150 : 320);
+runSimulation(nodes.length > 300 ? 150 : 320, 1);
 
 // ---------- render ----------
 const svgNS = "http://www.w3.org/2000/svg";
@@ -639,6 +648,25 @@ if (links.length > 2000) {
   minCountEl.value = 3;
   minCountVal.textContent = "3";
 }
+
+// ---------- 간격(spread) 슬라이더: 뭉쳐 보일 때 자유롭게 펼치거나 다시 좁힐 수 있게 ----------
+const spreadSlider = root.querySelector("#spreadSlider");
+const spreadVal = root.querySelector("#spreadVal");
+let spreadRunning = false;
+function applySpread() {
+  if (spreadRunning) return;
+  spreadRunning = true;
+  const spread = parseFloat(spreadSlider.value);
+  spreadVal.textContent = spread.toFixed(1) + "x";
+  // 현재 좌표에서 이어서 재계산 (처음부터 다시 배치하지 않음) - 스텝 수는 상호작용용으로 적게
+  requestAnimationFrame(() => {
+    runSimulation(70, spread);
+    tick();
+    fitToView();
+    spreadRunning = false;
+  });
+}
+spreadSlider.addEventListener("input", applySpread);
 
 const searchBox = root.querySelector("#searchBox");
 searchBox.addEventListener("input", applyFilters);

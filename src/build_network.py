@@ -10,6 +10,14 @@ from pathlib import Path
 # 한시 원문은 한자로만 적혀 있으므로, 괄호 안 한자만 실제 매칭에 쓸모가 있다.
 PAREN_RE = re.compile(r"^(.*?)\(([^)]*)\)\s*$")
 
+# "OO韻 二首" 다음에 "OO韻 二首 其二"처럼 이어지는 연작시는 실제로는 한 편(한 번의
+# 창작/수신 행위)이므로, 교류 횟수 집계에서 별개 건으로 중복 세지 않기 위해 접미사를 뗀다.
+SERIES_SUFFIX_RE = re.compile(r"\s*其[一二三四五六七八九十]+$")
+
+
+def strip_series_suffix(title: str) -> str:
+    return SERIES_SUFFIX_RE.sub("", title).strip()
+
 
 def split_aliases(raw: str):
     tokens = []
@@ -109,9 +117,11 @@ def main():
     edge_counts = defaultdict(int)  # (author_id, recipient_id, category) -> count
     unmatched_counts = defaultdict(int)  # raw string -> count
     ambiguous_rows = []
-    poem_matches = []  # 표에서 개별 시 제목을 조회할 수 있도록 시 단위 매칭 결과도 보존
+    poem_matches = []  # 표에서 개별 시 제목을 조회할 수 있도록 시 단위 매칭 결과는 모두 보존
+    seen_series = set()  # (author_id, recipient_id, category, collection_id, base_title)
     matched = 0
     self_matches = 0
+    series_deduped = 0
 
     for row in recipient_rows:
         author_id = row["collection_id"]
@@ -131,7 +141,6 @@ def main():
             self_matches += 1
             continue
 
-        edge_counts[(author_id, recipient_id, category)] += 1
         poem_matches.append({
             "author_id": author_id,
             "recipient_id": recipient_id,
@@ -141,6 +150,17 @@ def main():
             "title": row["title"],
         })
         matched += 1
+
+        # "OO韻 二首" + "OO韻 二首 其二"처럼 같은 연작시의 다른 수(其二/其三...)는
+        # 교류 1건으로 집계한다 (개별 제목은 poem_matches에 전부 남아 있어 조회는 가능).
+        base_title = strip_series_suffix(row["title"])
+        series_key = (author_id, recipient_id, category, base_title)
+        if series_key in seen_series:
+            series_deduped += 1
+            continue
+        seen_series.add(series_key)
+
+        edge_counts[(author_id, recipient_id, category)] += 1
 
     edges = []
     for (a_id, r_id, cat), cnt in sorted(edge_counts.items(), key=lambda x: -x[1]):
