@@ -393,6 +393,14 @@ function tick() {
 }
 tick();
 
+// id -> [{linkEl, nodeEl}] : 호버/드래그 시 전체(수천 개) 대신 연결된 것만 건드리기 위한 인접 구조
+const nodeElById = new Map(nodeEls.map(ne => [ne.data.id, ne]));
+const adjacency = new Map(nodes.map(n => [n.id, []]));
+linkEls.forEach(le => {
+  adjacency.get(le.data.source).push(le);
+  adjacency.get(le.data.target).push(le);
+});
+
 // ---------- tooltip ----------
 function showNodeTooltip(ev, n) {
   tooltip.innerHTML = "";
@@ -456,24 +464,32 @@ function positionTooltip(ev) {
 function hideTooltip() { tooltip.classList.remove("show"); }
 
 // ---------- highlight on node hover ----------
+// 전체 9700+ 엣지/650+ 노드를 매 호버마다 훑지 않고, 인접 목록 + "지금 dim 처리된 것들"만 기억해서 되돌린다.
+let dimmedNodes = [];
 function highlightNode(id) {
-  const neighbors = new Set([id]);
-  linkEls.forEach(({el, data}) => {
-    if (data.source === id || data.target === id) {
-      neighbors.add(data.source); neighbors.add(data.target);
-      el.classList.add("hi"); el.style.setProperty("--hi-width", edgeWidth(data.count) + 1 + "px");
-    } else {
+  const neighborIds = new Set([id]);
+  const myLinks = adjacency.get(id) || [];
+  myLinks.forEach(({el, data}) => {
+    neighborIds.add(data.source); neighborIds.add(data.target);
+    el.classList.add("hi");
+    el.style.setProperty("--hi-width", edgeWidth(data.count) + 1 + "px");
+  });
+  // 나머지 노드만 dim 처리 (인접 노드 수는 보통 아주 적음)
+  nodeEls.forEach(({el, data}) => {
+    if (!neighborIds.has(data.id)) {
       el.classList.add("dim");
+      dimmedNodes.push(el);
     }
   });
-  nodeEls.forEach(({el, data}) => {
-    if (!neighbors.has(data.id)) el.classList.add("dim");
-  });
+  root._dimmedLinks = myLinks;
 }
 function clearHighlight() {
-  linkEls.forEach(({el}) => { el.classList.remove("hi"); el.classList.remove("dim"); });
-  nodeEls.forEach(({el}) => el.classList.remove("dim"));
-  applyFilters();
+  (root._dimmedLinks || []).forEach(({el}) => {
+    el.classList.remove("hi");
+  });
+  dimmedNodes.forEach(el => el.classList.remove("dim"));
+  dimmedNodes = [];
+  root._dimmedLinks = [];
 }
 
 // ---------- drag ----------
@@ -495,7 +511,13 @@ function onDrag(ev) {
   const p = svgPoint(ev);
   dragging.x = p.x; dragging.y = p.y;
   dragging.vx = 0; dragging.vy = 0;
-  tick();
+  // 전체 tick() 대신 드래그 중인 노드와 그에 연결된 엣지만 갱신 (큰 그래프에서 끌기 지연 방지)
+  const ne = nodeElById.get(dragging.id);
+  if (ne) ne.el.setAttribute("transform", "translate(" + dragging.x + "," + dragging.y + ")");
+  (adjacency.get(dragging.id) || []).forEach(({el, data}) => {
+    el.setAttribute("x1", data.s.x); el.setAttribute("y1", data.s.y);
+    el.setAttribute("x2", data.t.x); el.setAttribute("y2", data.t.y);
+  });
 }
 function endDrag() {
   svg.removeEventListener("pointermove", onDrag);
@@ -504,6 +526,23 @@ function endDrag() {
 
 // ---------- pan & zoom ----------
 let viewX = 0, viewY = 0, viewScale = 1;
+
+function fitToView() {
+  const pad = 40;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x - n.r); maxX = Math.max(maxX, n.x + n.r);
+    minY = Math.min(minY, n.y - n.r); maxY = Math.max(maxY, n.y + n.r);
+  });
+  const bboxW = Math.max(1, maxX - minX), bboxH = Math.max(1, maxY - minY);
+  viewScale = Math.min((W - 2*pad) / bboxW, (H - 2*pad) / bboxH, 1.4);
+  viewScale = Math.max(viewScale, 0.05);
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  viewX = W / (2 * viewScale) - cx;
+  viewY = H / (2 * viewScale) - cy;
+  applyTransform();
+}
+
 let panning = false, panStart = null;
 svg.addEventListener("pointerdown", (ev) => {
   if (ev.target === svg) {
@@ -521,12 +560,14 @@ window.addEventListener("pointerup", () => { panning = false; svg.classList.remo
 svg.addEventListener("wheel", (ev) => {
   ev.preventDefault();
   const delta = ev.deltaY > 0 ? 0.9 : 1.1;
-  viewScale = Math.min(3, Math.max(0.4, viewScale * delta));
+  viewScale = Math.min(3, Math.max(0.05, viewScale * delta));
   applyTransform();
 }, { passive: false });
+svg.addEventListener("dblclick", () => fitToView());
 function applyTransform() {
   gWrap.setAttribute("transform", "scale(" + viewScale + ") translate(" + viewX + "," + viewY + ")");
 }
+fitToView();
 
 // ---------- filters ----------
 const catFiltersEl = root.querySelector("#catFilters");
